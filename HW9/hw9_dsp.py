@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # HW9 - filtering the signals
-# change the filename and the filter numbers for each signal
 
 fname = 'sigA.csv'
 
@@ -53,6 +52,14 @@ y_fir = np.convolve(y, h, 'same')
 # ---- pick which one to look at ----
 y_filt = y_fir   # change to y_avg or y_iir
 
+# title maker
+if y_filt is y_avg:
+    mytitle = fname + '  Moving Average  X=' + str(X)
+elif y_filt is y_iir:
+    mytitle = fname + '  IIR  A=' + str(A) + ' B=' + str(B)
+else:
+    mytitle = fname + '  FIR  cutoff=' + str(cutoff) + 'Hz'
+
 # fft of original
 Y = np.fft.fft(y)/n
 Y = abs(Y[0:n//2])
@@ -68,6 +75,7 @@ Yf = abs(Yf[0:n//2])
 plt.subplot(2,1,1)
 plt.plot(t, y, 'b')
 plt.plot(t, y_filt, 'r')
+plt.title(mytitle)
 plt.xlabel('Time [s]')
 plt.ylabel('Signal')
 
