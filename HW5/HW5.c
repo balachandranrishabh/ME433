@@ -47,7 +47,7 @@ void imu_read_all(signed short *data) {
     unsigned char raw[14];
     i2c_write_blocking(i2c_default, IMU_ADDR, &reg, 1, true);
     i2c_read_blocking(i2c_default, IMU_ADDR, raw, 14, false);
-    // recombine high/low bytes into 7 signed 16-bit values
+    // recombine high/low bytes signed 16-bit values
     for (int i = 0; i < 7; i++) {
         data[i] = (signed short)((raw[i * 2] << 8) | raw[i * 2 + 1]);
     }
@@ -104,11 +104,11 @@ int main() {
 
         imu_read_all(d);
         // d[0]=accelX  d[1]=accelY  d[2]=accelZ
-        float ax = d[0] * 0.000061f;   // -> g
+        float ax = d[0] * 0.000061f;   // convert to g's (divide by 16384)
         float ay = d[1] * 0.000061f;
 
         int cx = 64, cy = 16;          // screen center
-        int scale = 20;                // pixels per g
+        int scale = 20;                // pixels per
         int ex = cx + (int)(ax * scale);
         int ey = cy + (int)(ay * scale);
 
