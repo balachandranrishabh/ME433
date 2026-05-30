@@ -1,7 +1,6 @@
 // ME433 HW3 - MCP23008 I2C IO expander
 // Reads a button on the expander's GP0 and turns on an LED on the
-// expander's GP7. Blinks the Pico's own LED as a heartbeat so you can
-// tell the Pico is alive (and not stuck waiting on a dead I2C bus).
+// expander's GP7. The heartbeat LED on the Pico itself toggles to show the program is alive.
 
 #include <stdio.h>
 #include "pico/stdlib.h"
@@ -12,10 +11,10 @@
 #define MCP_ADDR 0x20
 
 // MCP23008 register addresses (from the datasheet):
-#define IODIR 0x00   // 1 = input, 0 = output
-#define GPPU  0x06   // pull-up enable (not used; we have an external pull-up)
+#define IODIR 0x00   
+#define GPPU  0x06   // pull-up enable 
 #define GPIO  0x09   // read pin states here
-#define OLAT  0x0A   // write pin states here
+#define OLAT  0x0A   
 
 #define EXP_LED 7    // LED is on the expander's GP7
 #define EXP_BTN 0    // button is on the expander's GP0
@@ -44,7 +43,7 @@ unsigned char readPin(unsigned char address, unsigned char reg) {
 int main() {
     stdio_init_all();
 
-    // --- I2C setup (I2C0 default pins) ---
+    // I2C setup (I2C0 default pins) 
     i2c_init(i2c_default, 400 * 1000); // 400 kHz
     gpio_set_function(PICO_DEFAULT_I2C_SDA_PIN, GPIO_FUNC_I2C);
     gpio_set_function(PICO_DEFAULT_I2C_SCL_PIN, GPIO_FUNC_I2C);
@@ -52,35 +51,27 @@ int main() {
     gpio_pull_up(PICO_DEFAULT_I2C_SDA_PIN);
     gpio_pull_up(PICO_DEFAULT_I2C_SCL_PIN);
 
-    // --- Heartbeat LED setup ---
+    // Heartbeat LED setup
     gpio_init(HEARTBEAT_PIN);
     gpio_set_dir(HEARTBEAT_PIN, GPIO_OUT);
-
-    // --- MCP23008 setup ---
-    // IODIR: make GP7 an output, all other pins inputs.
-    // 0b0111_1111 = 0x7F  (bit7 = 0 -> output, bits 0..6 = 1 -> input)
     setPin(MCP_ADDR, IODIR, 0x7F);
 
     bool heartbeat = false;
     while (true) {
-        // Toggle the heartbeat LED every loop so a frozen bus is obvious.
+        // Toggle the heartbeat LED so we can see the Pico is alive.
         heartbeat = !heartbeat;
         gpio_put(HEARTBEAT_PIN, heartbeat);
-
-        // Read all 8 expander pins at once.
         unsigned char gpio_state = readPin(MCP_ADDR, GPIO);
 
-        // Button on GP0 with an EXTERNAL PULL-UP:
-        //   not pressed -> bit0 reads 1
-        //   pressed     -> bit0 reads 0
+
         bool pressed = (((gpio_state >> EXP_BTN) & 0x01) == 0);
 
         if (pressed) {
-            setPin(MCP_ADDR, OLAT, (1 << EXP_LED)); // drive GP7 high -> LED on
+            setPin(MCP_ADDR, OLAT, (1 << EXP_LED));
         } else {
-            setPin(MCP_ADDR, OLAT, 0x00);           // GP7 low -> LED off
+            setPin(MCP_ADDR, OLAT, 0x00);
         }
 
-        sleep_ms(100); // heartbeat ~2.5 Hz; fast enough for the button
+        sleep_ms(100); 
     }
 }
