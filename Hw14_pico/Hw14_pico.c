@@ -60,12 +60,12 @@ int main() {
             if (n < 1) n = 1;
             if (n > MAX_SAMPLES) n = MAX_SAMPLES;
 
-            float filtered = (float)hx711_read();   // seed the IIR
+            float filtered = (float)hx711_read();  // initialize the filter with the first reading
             uint32_t t0 = to_ms_since_boot(get_absolute_time());
 
             for (int i = 0; i < n; i++) {
                 int r = hx711_read();
-                // IIR low-pass: tune A toward 1.0 for more smoothing
+                // IIR low-pass filter, float A is tuning, go closer to 1 for smoother.
                 float A = 0.85f;
                 filtered = A * filtered + (1.0f - A) * (float)r;
 
