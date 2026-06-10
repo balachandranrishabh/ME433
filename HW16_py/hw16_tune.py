@@ -2,11 +2,8 @@ import serial
 import numpy as np
 import matplotlib.pyplot as plt
 
-# ME433 HW16 - PI current controller tuning
-# Sends 'a' to the Nucleo, collects "index,desired,actual" lines, plots them.
-# Use the plot to tune kp and ki in the STM32 code.
-#
-# CHANGE PORT to the STM32's COM port (Device Manager > Ports, STLink Virtual COM).
+# ME433 HW16 - PI current controller tuning + plotting
+# CHANGE PORT to the STM32's COM port, for me is com7
 
 PORT = 'COM7'
 N = 400
