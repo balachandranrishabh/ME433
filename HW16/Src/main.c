@@ -68,7 +68,6 @@ static void MX_TIM2_Init(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
-/* USER CODE BEGIN 0 */
 uint32_t read_adc(void) {
     uint32_t raw;
     HAL_ADC_Start(&hadc1);
@@ -85,7 +84,6 @@ uint32_t read_adc(void) {
 #define INA219_REG_CURRENT 0x04
 #define INA219_REG_CALIB 0x05
 #define INA219_REG_CONFIG 0x00
-
 
 void writeINA219(int reg, int value) {
     uint8_t buf[3];
@@ -107,14 +105,66 @@ void init_ina219(void) {
     writeINA219(INA219_REG_CONFIG, 0b0011000010001111);
 }
 
-// interrupt code
+// --- PI current control ---
 volatile int state = 0;
+volatile int counter = 0;
+volatile float desired_current = 100.0;   // mA target, sign flips
+volatile float integral = 0.0;
+
+#define NSAMP 400
+volatile int idx = 0;
+float saved_desired[NSAMP];
+float saved_actual[NSAMP];
+
+float kp = 2.0;     // TUNE
+float ki = 0.15;    // TUNE
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     if (htim == &htim2) {
+        uint32_t pos = read_adc();
+
+        // safety end-stops
+        if (pos < 250 || pos > (4095 - 250)) {
+            __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2400);
+            __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 2400);
+            return;
+        }
+
         if (state == 1) {
-            printf("pot: %lu  current: %d\r\n", read_adc(), readINA219(INA219_REG_CURRENT));
-            state = 0;
+            float actual = readINA219(INA219_REG_CURRENT) / 3.0;  // mA
+            float error = desired_current - actual;
+            integral += error;
+
+            float u = kp * error + ki * integral;
+            if (u > 2400) u = 2400;
+            if (u < -2400) u = -2400;
+
+            if (u >= 0) {
+                __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2400);
+                __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 2400 - (int)u);
+            } else {
+                __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 2400);
+                __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2400 - (int)(-u));
+            }
+
+            if (idx < NSAMP) {
+                saved_desired[idx] = desired_current;
+                saved_actual[idx] = actual;
+                idx++;
+            }
+
+            counter++;
+            if (counter >= 100) {
+                desired_current = -desired_current;
+                counter = 0;
+            }
+            if (idx >= NSAMP) {
+                __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2400);
+                __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 2400);
+                state = 0;
+                counter = 0;
+                integral = 0;
+            }
         }
     }
 }
@@ -189,12 +239,16 @@ int main(void)
 	  uint8_t c;
 	      if (HAL_UART_Receive(&hcom_uart[COM1], &c, 1, 10) == HAL_OK) {
 	          if (c == 'a') {
+	              idx = 0;
+	              integral = 0;
+	              counter = 0;
 	              state = 1;
-	              while (state == 1) {// TEST ONLY - brief 50% one direction, then off
-	            	    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 1200);  // CH1 stays 2400, CH2 to 50% -> moves
-	            	    HAL_Delay(500);
-	            	    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 2400);  // back to off
-	            	    HAL_Delay(2000);}
+	              while (state == 1) {}
+
+	              // primt data
+	              for (int i = 0; i < NSAMP; i++) {
+	                  printf("%d,%d,%d\r\n", i, (int)saved_desired[i], (int)saved_actual[i]);
+	              }
 	          }
 	      }
     /* USER CODE BEGIN 3 */
